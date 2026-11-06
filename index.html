@@ -1,4 +1,4 @@
- HTML
+HTML
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -64,6 +64,43 @@
         localStorage.setItem('vaad_ev', JSON.stringify(evRefunds));
       }, [evRefunds]);
 
+      // --- פונקציות ייצוא וייבוא גיבוי ---
+      const exportBackup = () => {
+        const data = {
+          expenses,
+          evRefunds,
+          exportDate: new Date().toISOString()
+        };
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
+        const downloadAnchor = document.createElement('a');
+        downloadAnchor.setAttribute("href", dataStr);
+        downloadAnchor.setAttribute("download", `vaad_backup_${new Date().toISOString().split('T')[0]}.json`);
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+      };
+
+      const importBackup = (event) => {
+        const fileReader = new FileReader();
+        if (event.target.files && event.target.files[0]) {
+          fileReader.readAsText(event.target.files[0], "UTF-8");
+          fileReader.onload = (e) => {
+            try {
+              const parsed = JSON.parse(e.target.result);
+              if (parsed.expenses && parsed.evRefunds) {
+                setExpenses(parsed.expenses);
+                setEvRefunds(parsed.evRefunds);
+                alert("הגיבוי נטען בהצלחה!");
+              } else {
+                alert("קובץ הגיבוי אינו תקין.");
+              }
+            } catch (err) {
+              alert("שגיאה בקריאת הקובץ.");
+            }
+          };
+        }
+      };
+
       const handleCatChange = (e) => {
         const selectedCat = e.target.value;
         setCat(selectedCat);
@@ -74,7 +111,6 @@
         }
       };
 
-      // הפקת רשימת קטגוריות ייחודיות מתוך ההוצאות הקודמות לצורך הצעות אוטומטיות
       const uniqueCategories = Array.from(new Set(expenses.map(e => e.cat))).filter(Boolean);
 
       // --- חישובי מאזן מדויקים ---
@@ -91,13 +127,11 @@
       const fairShare = totalJoint / 2;
       const debtBtoA = fairShare - netB;
 
-      // פונקציית עזר לנרמול מחרוזות לחיפוש
       const normalizeText = (text) => {
         if (!text && text !== 0) return '';
         return text.toString().replace(/,/g, '').toLowerCase().trim();
       };
 
-      // שמירת הוצאה
       const handleSubmitExpense = (e) => {
         e.preventDefault();
         if (!desc || !amount || !cat) return;
@@ -150,7 +184,6 @@
         setDate(new Date().toISOString().split('T')[0]);
       };
 
-      // שמירת החזר EV
       const handleSubmitEV = (e) => {
         e.preventDefault();
         if (!tenant || !evAmount) return;
@@ -206,7 +239,6 @@
         }
       };
 
-      // סינון ומיון יומן הוצאות
       const filteredExpenses = expenses.filter(e => {
         if (!expSearchQuery) return true;
         const q = normalizeText(expSearchQuery);
@@ -243,7 +275,6 @@
         return 0;
       });
 
-      // סינון ומיון החזרי EV
       const filteredEvRefunds = evRefunds.filter(r => {
         if (!evSearchQuery) return true;
         const q = normalizeText(evSearchQuery);
@@ -285,12 +316,25 @@
 
       return (
         <div class="max-w-5xl mx-auto space-y-6">
-          <header class="bg-blue-900 text-white p-6 rounded-xl shadow-md flex justify-between items-center">
+          <header class="bg-blue-900 text-white p-6 rounded-xl shadow-md flex flex-col md:flex-row justify-between items-center gap-4">
             <div>
               <h1 class="text-2xl font-bold">מערכת התחשבנות חניון - בניין א' ובניין ב'</h1>
               <p class="text-blue-200 text-sm mt-1">ניהול הוצאות, צ'קים וקיזוז רכבים חשמליים</p>
             </div>
-            <button onClick={clearAllData} class="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-2 rounded font-bold">איפוס נתונים</button>
+            
+            {/* כפתורי גיבוי ואיפוס */}
+            <div class="flex flex-wrap gap-2 items-center">
+              <button onClick={exportBackup} class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-2 rounded font-bold flex items-center gap-1">
+                ⬇️ ייצוא גיבוי
+              </button>
+              <label class="bg-amber-600 hover:bg-amber-700 text-white text-xs px-3 py-2 rounded font-bold cursor-pointer flex items-center gap-1">
+                ⬆️ ייבוא גיבוי
+                <input type="file" accept=".json" onChange={importBackup} class="hidden" />
+              </label>
+              <button onClick={clearAllData} class="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-2 rounded font-bold">
+                איפוס
+              </button>
+            </div>
           </header>
 
           {/* תמונת מצב */}
@@ -314,7 +358,6 @@
               </div>
             </div>
 
-            {/* שורת הסיכום המרכזית המתוקנת */}
             <div class="bg-blue-900 text-white p-4 rounded-lg text-center font-bold text-lg">
               {debtBtoA > 0 ? (
                 <span>בניין ב' חייב לבניין א': ₪{debtBtoA.toLocaleString()}</span>
@@ -328,7 +371,6 @@
 
           {/* טפסים */}
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* טופס הוצאה */}
             <form onSubmit={handleSubmitExpense} class={`bg-white p-6 rounded-xl shadow space-y-4 border-2 ${editingId ? 'border-amber-500 bg-amber-50/20' : 'border-transparent'}`}>
               <div class="flex justify-between items-center border-b pb-2">
                 <h3 class="font-bold text-lg text-gray-800">{editingId ? "עריכת הוצאה קיימת" : "הוספת הוצאה חדשה"}</h3>
@@ -342,14 +384,13 @@
                 </div>
                 <div>
                   <label class="block text-sm font-medium mb-1">סוג הוצאה (קטגוריה)</label>
-                  {/* שדה טקסט עם השלמה אוטומטית (Datalist) מבוסס קטגוריות קודמות */}
                   <input 
                     type="text" 
                     list="categories-list" 
                     value={cat} 
                     onChange={handleCatChange} 
                     class="w-full border p-2 rounded text-sm bg-white" 
-                    placeholder="הקלידי או בחרי קטגוריה..." 
+                    placeholder="הקלידי או בחרי..." 
                     required 
                   />
                   <datalist id="categories-list">
@@ -395,7 +436,6 @@
               </button>
             </form>
 
-            {/* טופס החזרי EV */}
             <form onSubmit={handleSubmitEV} class={`bg-white p-6 rounded-xl shadow space-y-4 border-2 ${editingEvId ? 'border-amber-500 bg-amber-50/20' : 'border-transparent'}`}>
               <div class="flex justify-between items-center border-b pb-2">
                 <h3 class="font-bold text-lg text-gray-800">{editingEvId ? "עריכת החזר EV" : "החזר חשמל מרכב חשמלי (EV)"}</h3>
@@ -417,7 +457,7 @@
               </div>
               <div>
                 <label class="block text-sm font-medium mb-1">שם הדייר / דירה</label>
-                <input type="text" value={tenant} onChange={e=>setTenant(e.target.value)} class="w-full border p-2 rounded text-sm" placeholder="למשל: ישראל ישראלי (דירה 12)" required />
+                <input type="text" value={tenant} onChange={e=>setTenant(e.target.value)} class="w-full border p-2 rounded text-sm" placeholder="למשל: ברששת (דירה 12)" required />
               </div>
               <div class="grid grid-cols-2 gap-2">
                 <div>
@@ -437,8 +477,6 @@
 
           {/* טבלאות נתונים */}
           <div class="bg-white p-6 rounded-xl shadow space-y-6">
-            
-            {/* יומן הוצאות */}
             <div>
               <div class="flex flex-col md:flex-row justify-between items-start md:items-center bg-blue-50 p-3 rounded-lg border border-blue-100 mb-3 gap-3 text-sm">
                 <div class="flex items-center gap-2">
@@ -462,7 +500,7 @@
                     type="text" 
                     value={expSearchQuery} 
                     onChange={e => setExpSearchQuery(e.target.value)} 
-                    placeholder="חפשי סכום (למשל 1656), תיאור..." 
+                    placeholder="חפשי סכום, תיאור..." 
                     class="border bg-white p-1.5 rounded w-full md:w-64 text-sm" 
                   />
                   {expSearchQuery && (
@@ -513,7 +551,6 @@
 
             <hr />
 
-            {/* החזרי EV */}
             <div>
               <div class="flex flex-col md:flex-row justify-between items-start md:items-center bg-green-50 p-3 rounded-lg border border-green-100 mb-3 gap-3 text-sm">
                 <div class="flex items-center gap-2">
@@ -536,7 +573,7 @@
                     type="text" 
                     value={evSearchQuery} 
                     onChange={e => setEvSearchQuery(e.target.value)} 
-                    placeholder="חפשי סכום (למשל 1656), שם דייר..." 
+                    placeholder="חפשי סכום, שם דייר..." 
                     class="border bg-white p-1.5 rounded w-full md:w-64 text-sm" 
                   />
                   {evSearchQuery && (
